@@ -1,0 +1,370 @@
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Transactions;
+using Bamboo.Prevalence;
+using Bamboo.Prevalence.Attributes;
+
+namespace StruggleFree.Data
+{
+    [Serializable()]
+    public class EntityStorage<T, R> : StruggleFree.Data.IEntityStorage, StruggleFree.Data.IEntityStorage<T>
+    	where T:EntityData, new()
+        where R:DataRootBase<R>
+    {
+        protected ConcurrentDictionary<int, T> data = new ConcurrentDictionary<int, T>();
+        protected ConcurrentDictionary<int, Dictionary<string, int>> editValueDictionary = new ConcurrentDictionary<int, Dictionary<string, int>>();
+        protected int lastID = -1;
+        protected object lastIDLock = new object();
+        protected R root;
+        protected readonly bool isChild;
+
+        public EntityStorage(R root)
+            : this(root, false) { }
+
+        protected EntityStorage(R root, bool isChild)
+        {
+            this.root = root;
+            this.isChild = isChild;
+        }
+
+        protected T Add(int id, T item)
+        {
+        	//
+        	// Update sequence ID, other internals on Add
+        	//
+            item = AddCore(id, item);
+        	if (!data.TryAdd(id, item))
+            {
+                throw new System.Exception("Can't add");
+            }
+            AddToEditValueDictionary(item);
+            return item;
+        }
+        
+        protected virtual T AddCore(int id, T item)
+        {
+        	return item;
+        }
+        
+        public T AddOrUpdate(T item)
+        {
+            int id = item.InstanceID;
+            T oldItem = null;
+            if (data.TryGetValue(id, out oldItem))
+            {
+                try
+                {
+                    item = Update(id, oldItem, item);
+                    UpdateIndexes(oldItem, item);
+                }
+                catch (System.Exception ex)
+                {
+                    data[id] = oldItem;
+                    throw;
+                }
+            }
+            else
+            {
+                try
+                {
+                    AssertUniqueEditValue(item);
+                    item = Add(id, item);
+                    UpdateIndexes(null, item);
+                }
+                catch (System.Exception ex)
+                {
+                    data.TryRemove(id, out item);
+                    throw;
+                }
+            }
+            item.Timestamp = PrevalenceEngine.Now.ToUniversalTime();
+        	return (T)item.Clone();
+        }
+
+        protected void AddToEditValueDictionary(T item)
+        {
+            int parentInstanceID = -1;
+            ChildEntityData childItem = item as ChildEntityData;
+            if (childItem != null)
+            {
+                parentInstanceID = childItem.ParentInstanceID;
+            }
+            var editValueIndex = editValueDictionary.GetOrAdd(parentInstanceID,
+                (i) =>
+                {
+                    return new Dictionary<string, int>();
+                });
+            editValueIndex.Add(item.EditValue, item.InstanceID);
+        }
+
+        protected virtual void AssertUniqueEditValue(T item)
+        {
+            int parentInstanceID = -1;
+            ChildEntityData childItem = item as ChildEntityData;
+            if (childItem != null)
+            {
+                parentInstanceID = childItem.ParentInstanceID;
+            }
+            Dictionary<string, int> editValueIndex = null;
+            if (editValueDictionary.TryGetValue(parentInstanceID, out editValueIndex))
+            {
+                int instanceID = 0;
+                if (editValueIndex.TryGetValue(item.EditValue, out instanceID))
+                {
+                    if (instanceID > 0)
+                    {
+                        throw new InvalidOperationException("Duplicate values of EditValue are not permitted.");
+                    }
+                }
+            }
+        }
+
+        [Query()]
+        public T[] GetAll()
+        {
+            return data.Values.ToArray();
+        }
+
+        protected void InitLastID()
+        {
+            var items = data.Values;
+            if (items.Count > 0)
+            {
+                lastID = data.Values.Max(d => d.InstanceID);
+            }
+            else
+            {
+                lastID = 0;
+            }
+        }
+
+        [Query()]
+        public T New(int parentInstanceID = -1)
+        {
+            if (isChild && parentInstanceID < 1)
+            {
+                throw new InvalidOperationException("parentInstanceID must be greater than 0");
+            }
+            var item = new T();
+            lock (lastIDLock)
+            {
+                if (lastID < 0)
+                {
+                    InitLastID();
+                }
+                item.InstanceID = ++lastID;
+            }
+            return NewCore(item, parentInstanceID);
+        }
+
+        protected virtual T NewCore(T item, int parentInstanceID)
+        {
+            ChildEntityData childData = item as ChildEntityData;
+            if (childData != null)
+            {
+                childData.ParentInstanceID = parentInstanceID;
+            }
+            return item;
+        }
+
+        protected T Update(int id, T oldItem, T newItem)
+        {
+        	//
+        	// Verify timestamps and locks
+        	//
+        	//
+        	// Update internals
+        	//
+        	newItem = UpdateCore(id, oldItem, newItem);
+            data[id] = newItem;
+            UpdateEditValueDictionary(oldItem, newItem);
+            return newItem;
+        }
+ 
+        protected virtual T UpdateCore(int id, T oldItem, T item)
+        {
+        	return item;
+        }
+
+        protected void UpdateEditValueDictionary(T oldItem, T newItem)
+        {
+            int oldChildInstanceID = -1;
+            ChildEntityData oldChildItem = oldItem as ChildEntityData;
+            if (oldChildItem != null)
+            {
+                oldChildInstanceID = oldChildItem.ParentInstanceID;
+            }
+            int newParentInstanceID = -1;
+            ChildEntityData newChildItem = newItem as ChildEntityData;
+            if (newChildItem != null)
+            {
+                newParentInstanceID = newChildItem.ParentInstanceID;
+            }
+            if (oldItem != null && newItem != null && oldChildInstanceID == newParentInstanceID  && oldItem.EditValue == newItem.EditValue)
+            {
+                return;
+            }
+            if (oldItem != null)
+            {
+                var editValueIndex = editValueDictionary[oldChildInstanceID];
+                editValueIndex.Remove(oldItem.EditValue);
+                if (editValueDictionary[oldChildInstanceID].Count < 1)
+                {
+                    editValueDictionary.TryRemove(oldChildInstanceID, out editValueIndex);
+                }
+            }
+            if (newItem != null)
+            {
+                AddToEditValueDictionary(newItem);
+            }
+        }
+
+        [Query()]
+        public T Get(int instanceID)
+        {
+        	T item = null;
+        	TryGet(instanceID, out item);
+        	return item;
+        }
+
+        [Query()]
+        public T Get(string editValue, int parentEntityID = -1)
+        {
+            T item = null;
+            TryGet(editValue, out item, parentEntityID);
+            return item;
+        }
+
+        [Query()]
+        public bool TryGet(int instanceID, out T item)
+        {
+            if (data.TryGetValue(instanceID, out item))
+            {
+                item = (T)item.Clone();
+                return true;
+            }
+            return false;
+        }
+
+        [Query()]
+        public bool TryGet(string editValue, out T item, int parentEntityID = -1)
+        {
+            Dictionary<string, int> editValueIndex = null;
+            if (editValueDictionary.TryGetValue(parentEntityID, out editValueIndex))
+            {
+                int instanceID = -1;
+                if (editValueIndex.TryGetValue(editValue, out instanceID))
+                {
+                    item = (T)data[instanceID].Clone();
+                    return true;
+                }
+            }
+            item = null;
+            return false;
+        }
+
+//        public bool TryGet(string editValue, out T item)
+//        {
+//        	
+//        }
+//        
+//        public bool TryGet(IEnumerable<string> editValues, out T item)
+//        {
+//        	
+//        }
+        
+        [Query()]
+        public T Refresh(T item)
+        {
+        	return data[item.InstanceID];
+        }
+        
+//        public bool TryMarkDeleted(int instanceID, out T item)
+//        {
+//        
+//        }
+//        
+//        public bool TryMarkDeleted(string editValue, out T item)
+//        {
+//        	
+//        }
+//        
+//        public bool TryMarkDeleted(IEnumerable<string> editValues, out T item)
+//        {
+//        	
+//        }
+//        
+//        public bool TryMarkDeleted(out T item)
+//        {
+//        	
+//        }
+        
+        protected void UpdateIndexes(T oldItem, T newItem)
+        {
+        	UpdateIndexesCore(oldItem, newItem);
+        }
+
+        protected virtual void UpdateIndexesCore(T oldItem, T newItem)
+        {
+        }
+
+        IEntityData IEntityStorage.AddOrUpdate(IEntityData item)
+        {
+            T tItem = item as T;
+            if (tItem == null)
+            {
+                throw new ArgumentException("item is not of type T", "item");
+            }
+            return AddOrUpdate(tItem);
+        }
+
+        IEntityData IEntityStorage.Get(int instanceID)
+        {
+            return Get(instanceID);
+        }
+
+        IEntityData IEntityStorage.Get(string editValue, int parentEntityID)
+        {
+            return Get(editValue, parentEntityID);
+        }
+
+        IEntityData[] IEntityStorage.GetAll()
+        {
+            return GetAll();
+        }
+
+        IEntityData IEntityStorage.New(int parentInstanceID)
+        {
+            return New(parentInstanceID);
+        }
+
+        IEntityData IEntityStorage.Refresh(IEntityData item)
+        {
+            T tItem = item as T;
+            if (tItem == null)
+            {
+                throw new ArgumentException("item is not of type T", "item");
+            }
+            return Refresh(tItem);
+        }
+
+        bool IEntityStorage.TryGet(int instanceID, out IEntityData item)
+        {
+            T tItem = null;
+            bool result = TryGet(instanceID, out tItem);
+            item = tItem;
+            return result;
+        }
+
+        bool IEntityStorage.TryGet(string editValue, out IEntityData item, int parentEntityID)
+        {
+            T tItem = null;
+            bool result = TryGet(editValue, out tItem, parentEntityID);
+            item = tItem;
+            return result;
+        }
+    }
+}

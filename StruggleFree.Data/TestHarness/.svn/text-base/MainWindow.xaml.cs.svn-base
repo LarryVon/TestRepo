@@ -1,0 +1,62 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
+using System.Windows.Shapes;
+
+namespace TestHarness
+{
+    /// <summary>
+    /// Interaction logic for MainWindow.xaml
+    /// </summary>
+    public partial class MainWindow : Window
+    {
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+            //{
+            //    var al = Root.Instance.New<Parent>();
+            //    al.Name = "Al Kurtze";
+            //    al = Root.Instance.AddOrUpdate(al);
+
+             //   Root.TakeSnapshot();
+                var sue = Root.Instance.New<Parent>();
+                sue.Name = "Susan Kurtze";
+                sue = Root.Instance.AddOrUpdate(sue);
+
+                //var parent = Root.Instance.NewParent();
+                //parent.Name = "Larry Von Kurtze";
+                //parent = Root.Instance.AddOrUpdate(parent);
+
+                //var heather = Root.Instance.Parents().Get(1);
+                //heather.Name = "Heather MacMillan Von Kurtze";
+                //heather = Root.Instance.AddOrUpdate(heather);
+
+                //var larry = Root.Instance.Parents().Get("Larry Von Kurtze");
+
+                //var sarah = Root.Instance.NewChild(larry);
+                //sarah.Name = "Sarah Kurtze";
+                //sarah = Root.Instance.AddOrUpdate(sarah);
+                Root.TakeSnapshot();
+            }
+            catch (System.Exception ex)
+            {
+                Root.TakeSnapshot();
+            }
+        }
+    }
+}

@@ -1,0 +1,772 @@
+<%-- 
+Name:
+Author: 
+Description: 
+--%>
+<%@ CodeTemplate Language="C#" TargetLanguage="Text" Src="" Inherits="" Debug="False" CompilerVersion="v3.5" Description="Template description here." %>
+<%@ Property Name="EpicorVersion" Type="NormanCliff.SystemData.Data.EpicorVersion" Default="" Optional="False" Category="Generation Options" Description="" %>
+<%@ Property Name="Namespace" Type="System.String" Default="" Optional="False" Category="Generation Options" Description="" %>
+<%@ Property Name="ObsoleteColumnsToInclude" Type="StringCollection" Default="" Optional="True" Category="Generation Options" Description="" %>
+<%@ Property Name="ParentNamespace" Type="System.String" Default="NormanCliff.EMfg.Schema" Optional="False" Category="Generation Options" Description="" %>
+<%@ Property Name="ParentContextClassName" Type="System.String" Default="EMfgSchema" Optional="False" Category="Generation Options" Description="" %>
+<%@ Property Name="ContextClassName" Type="System.String" Default="" Optional="False" Category="Generation Options" Description="" %>
+<%@ Property Name="SkipCommonColumns" Type="System.Boolean" Default="True" Optional="False" Category="Generation Options" Description="" %>
+<%@ Property Name="SkipIMTables" Type="System.Boolean" Default="True" Optional="False" Category="Generation Options" Description="" %>
+<%@ Property Name="SkipObsoleteFields" Type="System.Boolean" Default="True" Optional="False" Category="Generation Options" Description="" %>
+<%@ Property Name="SkipObsoleteTables" Type="System.Boolean" Default="True" Optional="False" Category="Generation Options" Description="" %>
+<%@ Property Name="SkipUserDefinedFields" Type="System.Boolean" Default="True" Optional="False" Category="Generation Options" Description="" %>
+<%@ Property Name="SystemDataConnectionString" Type="System.String" Default="Data Source=pastureside\sqlexpress;Initial Catalog=SystemData;Integrated Security=True" Optional="False" Category="Database" Description="" %>
+<%@ Property Name="TableList" Type="StringCollection" Default="" Optional="True" Category="Database" Description="" %>
+<%-- Register referenced assemblies.  --%>
+<%@ Assembly Name="CodeSmith.CustomProperties" %>
+<%@ Assembly Name="CodeSmith.Data" %>
+<%@ Assembly Name="CodeSmith.Engine" %>
+<%@ Assembly Name="CodeSmith.BaseTemplates" %>
+<%@ Assembly Name="System.Data" %>
+<%@ Assembly Name="System.Data.Linq" %>
+<%@ Assembly Name="System.Data.Services" %>
+<%@ Assembly Name="NormanCliff.SystemData.Data" %>
+<%-- Import commonly used namespaces. --%>
+<%@ Import Namespace="CodeSmith.CustomProperties" %>
+<%@ Import Namespace="CodeSmith.Engine" %>
+<%@ Import Namespace="CodeSmith.BaseTemplates" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+<%@ Import Namespace="System.Collections.Generic" %>
+<%@ Import Namespace="System.Linq" %>
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="NormanCliff.SystemData.Data" %>
+<%--
+
+--%>
+<%  
+InitSystemDataDataContext();  
+%>
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Text;
+using SFEpic.Data;
+
+namespace <%= Namespace %>
+{
+    [Serializable()]
+    public partial class <%= ContextClassName %> : SFEpic.Data.DataContext
+    {
+        public <%= ContextClassName %>()
+            : base()
+        {
+        }
+
+<%
+        if (TableList == null)
+        {
+            TableList = new StringCollection();   
+        }       
+        if (ObsoleteColumnsToInclude == null)
+        {
+            ObsoleteColumnsToInclude = new StringCollection();    
+        }
+        var tables = GetTables();
+        
+        foreach (TableInfo table in tables)
+        {
+%>
+        #region <%= table.TableName %>
+
+        public <%= table.TableName %> Get<%= table.TableName %>(ICriteriaValue[] criteria)
+        {
+            return <%= table.TableName %>.Fill(this, criteria);
+        }
+  
+        public <%= table.TableName %> Get<%= table.TableName %>All()
+        {
+            return <%= table.TableName %>.FillAll(this);
+        }
+        
+<%
+            var pkCols = GetPrimaryKeyColumnInfos(table);
+            for (int i = 0; i < pkCols.Count; i++)
+            {
+                var pkCol = pkCols[i];
+                var memberName = GetColumnMemberName(pkCol);
+%>
+        <%= GetFillMethod(table, pkCols, pkCol, i) %>
+        
+<%
+            }
+%>  
+
+        #endregion        
+        
+<%
+        }   
+%>
+    }
+}
+<script runat="template">
+SystemDataDataContext systemDataDataContext;
+
+public string GetLastCheckboxFieldName(TableInfo table)
+{
+    int count = table.ColumnInfoList.Count(c => c.ColumnName == "CheckBox20");
+    return count > 0 ? "CheckBox20" : "CheckBox05";
+}    
+
+public string GetFillMethod(TableInfo table, IList<ColumnInfo> pkCols, ColumnInfo pkCol, int index)
+{
+        //public static Part FillByPart(DataContext context, string companyNum, string partNum, params string[] columnNames)
+        //{
+        //    if (fillByPartCriteria == null)
+        //    {
+        //        var list = new List<ICriteriaValue>();
+        //        list.Add(new CriteriaValue<string>(SchemaTable.ColumnsDictionary[Schema.Part.CompanyNum]));
+        //        list.Add(new CriteriaValue<string>(SchemaTable.ColumnsDictionary[Schema.Part.PartNum]));
+        //        fillByPartCriteria = list.ToArray();
+        //    }
+        //    fillByPartCriteria[0].Value = companyNum;
+        //    fillByPartCriteria[1].Value = partNum;
+        //    return Part.Fetch(context, fillByPartCriteria, columnNames);
+        //}
+    StringBuilder builder = new StringBuilder();
+    var tableName = table.TableName;
+    var memberName = GetColumnMemberName(pkCol);
+    List<ColumnInfo> cols = new List<ColumnInfo>();
+    for (int i = 0; i <= index; i++)
+    {
+        cols.Add(pkCols[i]);            
+    }
+    builder.AppendFormat("public {0} Get{0}By{1}({2})\r\n\t\t{{\r\n\t\t\t", tableName, memberName, GetSignatureForColumns(cols));   
+    builder.AppendFormat("return {0}.FillBy{1}(this, {2});\r\n\t\t", tableName, memberName, GetArgsForColumns(cols));
+    builder.Append("}");
+    return builder.ToString();
+}
+
+public string GetArgsForColumns(IList<ColumnInfo> columnInfos)
+{
+    StringBuilder builder = new StringBuilder();
+    for (int i = 0; i < columnInfos.Count; i++)
+    {
+        builder.AppendFormat("{0}{1}", 
+            CodeSmith.Engine.StringUtil.ToCamelCase(GetColumnMemberName(columnInfos[i])),
+            i < columnInfos.Count - 1 ? ", ": String.Empty);
+    }
+    return builder.ToString();    
+}
+
+public string GetSignatureForColumns(IList<ColumnInfo> columnInfos)
+{
+    StringBuilder builder = new StringBuilder();
+    for (int i = 0; i < columnInfos.Count; i++)
+    {
+        builder.AppendFormat("{0} {1}{2}", 
+            GetClrType(columnInfos[i]),
+            CodeSmith.Engine.StringUtil.ToCamelCase(GetColumnMemberName(columnInfos[i])),
+            i < columnInfos.Count - 1 ? ", ": String.Empty);
+    }
+    return builder.ToString();    
+}  
+
+public string GetSchemaColumnFactoryCall(ColumnInfo column)
+{
+    StringBuilder builder = new StringBuilder();
+    bool isRequired = IsColumnInPrimaryKey(column);
+    string isRequiredString = isRequired ? "true" : "false";
+    string columnName = GetColumnMemberName(column);
+    switch (column.ColumnType)
+    {
+        case "integer":
+            if (column.IsTime)
+            {
+                string timeFormat = "columnsList.Add(SFEpic.Data.SchemaColumnFactory.GetIntegerSchemaColumn(this, \"{0}\", schemaColumnName: \"{1}\", ordinalSequence: seq++, isRequired: {2}));";
+                builder.AppendFormat(timeFormat, columnName, column.ColumnName, isRequiredString);
+            }
+            else
+            {
+                string integerFormat = "columnsList.Add(SFEpic.Data.SchemaColumnFactory.GetIntegerSchemaColumn(this, \"{0}\", schemaColumnName: \"{1}\", ordinalSequence: seq++, isRequired: {2}));";
+                builder.AppendFormat(integerFormat, columnName, column.ColumnName, isRequiredString);
+            }    
+            break;
+            
+        case "numeric":
+            string numericFormat = "columnsList.Add(SFEpic.Data.SchemaColumnFactory.GetDecimalSchemaColumn(this, \"{0}\", {1}, {2}, schemaColumnName: \"{3}\", ordinalSequence: seq++, isRequired: {4}));";
+            builder.AppendFormat(numericFormat, columnName, column.Width, column.Scale, column.ColumnName, isRequiredString);
+            break;
+            
+        case "bit":
+            string bitFormat = "columnsList.Add(SFEpic.Data.SchemaColumnFactory.GetBooleanSchemaColumn(this, \"{0}\", schemaColumnName: \"{1}\", ordinalSequence: seq++, isRequired: {2}));";
+            builder.AppendFormat(bitFormat, columnName, column.ColumnName, isRequiredString);
+            break;
+        
+        case "date":
+            string dateFormat = "columnsList.Add(SFEpic.Data.SchemaColumnFactory.GetDateSchemaColumn(this, \"{0}\", schemaColumnName: \"{1}\", ordinalSequence: seq++, isRequired: {2}, isNullable: {3}));";
+            builder.AppendFormat(dateFormat, columnName, column.ColumnName, isRequiredString, isRequired ? "false" : "true");
+            break;
+            
+        case "varchar":
+            string varcharFormat = "columnsList.Add(SFEpic.Data.SchemaColumnFactory.GetTextSchemaColumn(this, \"{0}\", {1}, schemaColumnName: \"{2}\", ordinalSequence: seq++, isRequired: {3}));";
+            builder.AppendFormat(varcharFormat, columnName, column.Width, column.ColumnName, isRequiredString);
+            break;
+            
+        default:
+            throw new System.NotSupportedException(String.Format("Column Type {0} not supported by SchemaColumnFactory", column.ColumnType));
+            break;
+    }
+    return builder.ToString();
+            //columnsList.Add(SchemaColumnFactory.GetTextSchemaColumn(this, "CompanyNum", 16, schemaColumnName: "Company", ordinalSequence: seq++, isNullable: false, isRequired: true));   
+}
+
+public enum AccessModifier
+{
+    Public,Protected,Internal,Private,ProtectedInternal    
+}
+
+public void InitSystemDataDataContext()
+{
+    systemDataDataContext = new SystemDataDataContext(SystemDataConnectionString);
+}
+
+public IEnumerable<ColumnInfo> GetColumns(TableInfo table)
+{
+    IEnumerable<ColumnInfo> columns;
+    IList<string> commonColumnNames;
+    columns = from x in table.ColumnInfoList
+           select x;
+    if (SkipUserDefinedFields)
+    {
+        columns = from c in columns
+                  where !c.IsUserDefinedField
+                  select c;
+    }
+    if (SkipObsoleteFields)
+    {
+        columns = from c in columns
+                  where !((c.ColumnName.Contains("Obsolete") ||
+                        c.ColumnName.Contains("OBS900-")) &&
+                        !ObsoleteColumnsToInclude.Contains(c.ColumnName))
+                  select c;
+    }                
+    return columns.OrderBy(c => c.ColumnSequence);            
+}
+
+public IList<string> GetCommonColumnNames(TableInfo table)
+{
+    int v8TableID = (from t in systemDataDataContext.TableInfo
+                where t.TableName == table.TableName &&
+                t.OwnerID == GetV8OwnerID()
+                select t.TableID).FirstOrDefault();
+    
+    int e9TableID = (from t in systemDataDataContext.TableInfo
+                where t.TableName == table.TableName &&
+                t.OwnerID == GetE9OwnerID()
+                select t.TableID).FirstOrDefault();
+    
+    IEnumerable<string> v8ColumnNames = from c in systemDataDataContext.ColumnInfo
+                                    where c.TableID == v8TableID
+                                    select c.ColumnName;
+    
+    IEnumerable<string> e9ColumnNames = from c in systemDataDataContext.ColumnInfo
+                                    where c.TableID == e9TableID
+                                    select c.ColumnName;
+    
+    return v8ColumnNames.Intersect(e9ColumnNames).ToList();
+}    
+
+public string GetAccessModifierString(AccessModifier accessModifier)
+{
+    switch (accessModifier)
+    {
+        case AccessModifier.ProtectedInternal:
+            return "protected internal";
+            break;
+        
+        default:
+            return accessModifier.ToString().ToLower();
+            break;
+    }
+}
+
+public bool IsPropertyClrNullable(ColumnInfo column)
+{
+    return column.IsNullable && column.ClrType == "System.DateTime";
+}
+
+public string GetGetPropertyMethodName(ColumnInfo column)
+{
+    switch (column.ClrType)
+    {
+        case "System.Int32":
+            return "GetIntegerProperty";
+            break;
+            
+        case "System.Boolean":
+            return "GetBooleanProperty";
+            break;
+            
+        case "System.DateTime":
+            if (column.IsNullable)
+            {
+                return "GetNullableDateTimeProperty";   
+            }
+            return "GetDateTimeProperty";
+            break;
+            
+        case "System.Decimal":
+            return "GetDecimalProperty";
+            break;
+            
+        default:
+            return "GetStringProperty";
+            break;
+    }
+}
+
+public string GetClrType(ColumnInfo column)
+{
+    switch (column.ClrType)
+    {
+        case "System.Int64":
+            return "long";
+            break;
+    
+        case "System.Boolean":
+            return "bool";
+            break;
+    
+        case "System.DateTime":
+            return "DateTime";
+            break;
+    
+        case "System.Double":
+            return "double";
+            break;
+    
+        case "System.Int32":
+            return "int";
+            break;
+    
+        case "System.Decimal":
+            return "decimal";
+            break;
+    
+        case "System.Single":
+            return "single";
+            break;
+    
+        case "System.Int16":
+            return "short";
+            break;
+    
+        case "System.Byte[]":
+            return "byte[]";
+            break;
+    
+        default:
+            return "string";
+            break;               
+    }
+}    
+
+public string GetPropertyType(ColumnInfo column)
+{
+    return String.Concat(GetClrType(column), GetIfTrue(IsPropertyClrNullable(column), "?", false));
+}
+
+public string GetConcisePropertyDeclaration(string propertyName, AccessModifier accessModifier, string propertyType, bool isNullable)
+{
+    return String.Format("{4}{0} {1}{2} {3} {{ get; set; }}", 
+        GetAccessModifierString(accessModifier), 
+        propertyType,
+        GetIfTrue(isNullable && propertyType == "DateTime", "?", false),
+        propertyName,
+        Indent(2));
+}
+
+public string GetColumnMemberName(ColumnInfo columnInfo)
+{
+    string columnName = columnInfo.ColumnName;
+    if (columnName == "Company")
+    {
+        return "CompanyNum";   
+    }
+    if (columnName == "CompanyNum")
+    {
+        return "CompanyNumber";   
+    }    
+    if (columnName == "JCDept")
+    {
+        return "JCDeptNum";   
+    }       
+    if (columnName == "Plant")
+    {
+        return "PlantNum";   
+    }
+    if (columnName == columnInfo.TableInfo.TableName)
+    {
+        return columnName + "Num";   
+    }    
+    if (columnName.Contains("-"))
+    {
+        return columnName.Replace("-", "_");   
+    }
+    return columnName;
+}
+
+public string GetColumnPropertyDeclaration(ColumnInfo columnInfo)
+{
+     return GetConcisePropertyDeclaration(GetColumnMemberName(columnInfo), AccessModifier.Public, columnInfo.ClrType, columnInfo.IsNullable);        
+}
+
+public string GetGetByPrimaryKeyMethodCall(TableInfo table)
+{
+    return GetGetByPrimaryKeyMethodCall(table, null);
+}
+
+public string GetGetByPrimaryKeyMethodCall(TableInfo table, string variableName)
+{
+    IList<ColumnInfo> primaryKeyColumns = GetPrimaryKeyColumnInfos(table);
+    string objectPrefix = !String.IsNullOrEmpty(variableName) ? String.Concat(variableName, ".") : String.Empty;
+    bool shouldCamel = String.IsNullOrEmpty(objectPrefix);
+    if (primaryKeyColumns != null && primaryKeyColumns.Count > 0)
+    {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < primaryKeyColumns.Count; i++)
+        {//shouldCamel ? CodeSmith.Engine.StringUtil.ToCamelCase(GetColumnMemberName(primaryKeyColumns[i])) : GetColumnMemberName(primaryKeyColumns[i]),
+            string columnMemberName = GetColumnMemberName(primaryKeyColumns[i]);
+            if (shouldCamel)
+            {
+                columnMemberName = CodeSmith.Engine.StringUtil.ToCamelCase(columnMemberName);
+            }
+            builder.AppendFormat("{2}{0}{1}", 
+                columnMemberName,
+                i < primaryKeyColumns.Count - 1 ? ", ": String.Empty,
+                objectPrefix);
+        }
+        return builder.ToString();
+    }
+    return String.Empty;
+}  
+
+public string GetGetByPrimaryKeyMethodSignature(TableInfo table)
+{
+    IList<ColumnInfo> primaryKeyColumns = GetPrimaryKeyColumnInfos(table);
+    if (primaryKeyColumns != null && primaryKeyColumns.Count > 0)
+    {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < primaryKeyColumns.Count; i++)
+        {
+            builder.AppendFormat("{0} {1}{2}", 
+                GetPropertyType(primaryKeyColumns[i]), 
+                CodeSmith.Engine.StringUtil.ToCamelCase(GetColumnMemberName(primaryKeyColumns[i])),
+                i < primaryKeyColumns.Count - 1 ? ", ": String.Empty);
+        }
+        return builder.ToString();
+    }
+    return String.Empty;
+}
+
+public string GetGetTableExpression(TableInfo tableInfo)
+{
+    return String.Format("{1}return this.provider.GetTable<{0}>(\"{0}\");", tableInfo.TableName, Indent(4));    
+}
+
+public string GetIfTrue(bool value, string trueString, bool includeTrailingSpace)
+{
+    return value ? String.Concat(trueString, GetIfTrue(includeTrailingSpace, " ", false)) : String.Empty;
+}
+
+public string GetNamespaceDeclaration(string namespaceName)
+{
+    return String.Format("namespace {0}\r\n{{\r\n", namespaceName);
+}
+
+public string GetReadOnlyPropertyDeclaration(string propertyName, AccessModifier accessModifier, string propertyType, bool isNullable)
+{
+    return String.Format("{4}{0} {1}{2} {3}\r\n{4}{{\r\n{5}get\r\n{5}{{", 
+        GetAccessModifierString(accessModifier), 
+        propertyType,
+        GetIfTrue(isNullable && propertyType.ToLower() != "string", "?", false),
+        EpicorVersion != EpicorVersion.All ? propertyName : String.Concat(propertyName, "Common"),
+        Indent(2),
+        Indent(3));
+}
+
+public string GetTableAttributeDeclaration(TableInfo tableInfo)
+{
+    return String.Format("{0}[Table(Name=\"{1}.{2}\")]", Indent(2), tableInfo.OwnerInfo.OwnerName, tableInfo.TableName);   
+}
+
+List<string> commonTableNames;
+public IEnumerable<string> GetCommonTableNames()
+{
+    if (commonTableNames != null)
+    {
+        return commonTableNames;
+    }
+    var e9TableNames = from t in systemDataDataContext.TableInfo
+           where t.OwnerID == GetE9OwnerID() 
+           select t.TableName;
+    var v8TableNames = from t in systemDataDataContext.TableInfo
+           where t.OwnerID == GetV8OwnerID() 
+           select t.TableName;
+    IEnumerable<string> tableNames = v8TableNames.Intersect(e9TableNames);  
+    commonTableNames = new List<string>();
+    foreach (string tableName in tableNames)
+    {
+        if (HasCommonPrimaryKeys(tableName))
+        {
+            commonTableNames.Add(tableName);   
+        }        
+    }
+    return commonTableNames;
+}
+
+private Dictionary<string, IEnumerable<ColumnInfo>> commonPrimaryKeyColumnsDictionary;
+public IEnumerable<ColumnInfo> GetCommonPrimaryKeyColumnInfos(string tableName)
+{
+    if (commonPrimaryKeyColumnsDictionary == null)
+    {
+        commonPrimaryKeyColumnsDictionary = new Dictionary<string, IEnumerable<ColumnInfo>>();      
+    }
+    if (commonPrimaryKeyColumnsDictionary.ContainsKey(tableName))
+    {
+        return commonPrimaryKeyColumnsDictionary[tableName];   
+    }
+    //table.PrimaryKeyKeyInfoList[0].KeyColumnInfoList[0].PrimaryKeyColumnID
+    List<KeyColumnInfo> v8PrimaryKeyColumns = (from t in systemDataDataContext.TableInfo
+       where t.OwnerID == GetV8OwnerID() &&
+        t.TableName == tableName
+       select t).First().PrimaryKeyKeyInfoList[0].KeyColumnInfoList.OrderBy(c => c.Sequence).ToList();
+    List<KeyColumnInfo> e9PrimaryKeyColumns = (from t in systemDataDataContext.TableInfo
+       where t.OwnerID == GetE9OwnerID() &&
+        t.TableName == tableName
+       select t).First().PrimaryKeyKeyInfoList[0].KeyColumnInfoList.OrderBy(c => c.Sequence).ToList();
+    bool isCommonTable = false;
+    List<ColumnInfo> primaryKeyColumnInfos = new List<ColumnInfo>();
+    if (v8PrimaryKeyColumns.Count > 0 && v8PrimaryKeyColumns.Count == e9PrimaryKeyColumns.Count)
+    {
+        for (int i = 0; i < v8PrimaryKeyColumns.Count; i++)
+        {
+            if (v8PrimaryKeyColumns[i].PrimaryKeyColumnInfo.ColumnName != e9PrimaryKeyColumns[i].PrimaryKeyColumnInfo.ColumnName)
+            {
+                isCommonTable = false;
+                break;
+            }
+            primaryKeyColumnInfos.Add(v8PrimaryKeyColumns[i].PrimaryKeyColumnInfo);
+        }
+        isCommonTable = true;
+    }    
+    if (isCommonTable)
+    {
+        commonPrimaryKeyColumnsDictionary.Add(tableName, primaryKeyColumnInfos);
+        return primaryKeyColumnInfos;
+    }
+    else
+    {
+        commonPrimaryKeyColumnsDictionary.Add(tableName, null);   
+        return null;
+    }
+}
+
+public IList<ColumnInfo> GetPrimaryKeyColumnInfos(TableInfo table)
+{
+    List<ColumnInfo> columns = new List<ColumnInfo>();
+    foreach (KeyColumnInfo keyColumn in table.PrimaryKeyKeyInfoList[0].KeyColumnInfoList.OrderBy(c => c.Sequence))
+    {
+        columns.Add(keyColumn.PrimaryKeyColumnInfo);   
+    }
+    return columns;
+}
+
+public bool HasCommonPrimaryKeys(string tableName)
+{
+    return GetCommonPrimaryKeyColumnInfos(tableName) != null;
+}
+
+public bool IsCommonTable(TableInfo table)
+{
+    if (table == null)
+    {
+        return false;   
+    }
+    return GetCommonTableNames().ToList().Contains(table.TableName);   
+}    
+
+public bool DoesTableContainColumn(TableInfo table, string columnName)
+{
+    return GetColumn(table, columnName) != null;   
+}
+
+public ColumnInfo GetColumn(TableInfo table, string columnName)
+{
+    return (from c in table.ColumnInfoList
+        where c.ColumnName == columnName
+        select c).FirstOrDefault();
+}
+
+public IEnumerable<TableInfo> GetTables()
+{
+    IEnumerable<TableInfo> tables;
+    if (EpicorVersion != EpicorVersion.All)
+    {
+        tables = from t in systemDataDataContext.TableInfo
+               where t.OwnerID == GetOwnerID() 
+               select t;
+    }
+    else
+    {
+        tables = from t in systemDataDataContext.TableInfo
+               where t.OwnerID == GetV8OwnerID() 
+               select t;
+        var commonTableNames = GetCommonTableNames();
+        tables = from t in tables
+                    where commonTableNames.Contains(t.TableName)
+                    select t;
+    }
+    if (SkipIMTables)
+    {
+        tables = from t in tables
+                 where !t.TableName.StartsWith("IM")
+                 select t;
+    }
+    if (SkipObsoleteTables)
+    {
+        tables = from t in tables
+                where !(t.TableName.ToLower().Contains("obsolete900-") ||
+                        t.TableName.ToUpper().Contains("OBSOLETE") ||
+                        t.TableName.Contains("OBS900-") ||
+                        t.TableName.Contains("Obs900-"))
+                select t;
+    }                 
+    if (TableList.Count > 0)
+    {
+        tables = from t in tables
+                 where TableList.ToArray().Contains(t.TableName)
+                 select t;
+    }
+    return from t in tables
+        where !t.TableName.StartsWith("_")
+        orderby t.TableName
+        select t;
+}
+
+public int GetOwnerID()
+{
+    if (EpicorVersion == EpicorVersion.V8)
+    {
+        return GetV8OwnerID();   
+    }
+    else
+    {
+        return GetE9OwnerID();   
+    }    
+}
+
+public int GetV8OwnerID()
+{
+    return 1;   
+}    
+
+public int GetE9OwnerID()
+{
+    return 7;   
+}  
+
+public string Indent(int indentLevel)
+{
+	if (indentLevel <= 0)
+    {
+        return String.Empty;
+    }
+    StringBuilder builder = new StringBuilder();
+    for (int i = 1; i <= indentLevel; i++)
+    {
+       builder.Append("\t");    
+    }
+    return builder.ToString();
+}
+
+public bool IsColumnInPrimaryKey(ColumnInfo column)
+{
+    return column.TableInfo.PrimaryKeyKeyInfoList[0].KeyColumnInfoList.Count(kc => kc.PrimaryKeyColumnID == column.ColumnID) > 0;   
+}
+//Company
+//CustCnt
+//CustGrup
+//Customer
+//CustXPrt
+//EmpBasic
+//JCDept
+//JCShift
+//JCSyst
+//JobAsmbl
+//JobHead
+//JobMtl
+//JobOpDtl
+//JobOper
+//JobPart
+//JobProd
+//JobSched
+//LabExpCd
+//LaborDtl
+//LaborHed
+//LegalNumber
+//OpMaster
+//OrderDtl
+//OrderHed
+//OrderRel
+//Part
+//PartBin
+//PartClass
+//PartCost
+//PartFIFOCost
+//PartFIFOTran
+//PartLot
+//*PartMtl
+//*PartOpDtl
+//*PartOpr
+//PartPlant
+//PartQty
+//PartRev
+//PartTran
+//PartWhse
+//Plant
+//PlantTran
+//PlantWhse
+//PODetail
+//POHeader
+//PORel
+//ProdCal
+//ProdCalDay
+//ProdCalWeek
+//ProdGrup
+//Resource
+//ResourceCal
+//ResourceCollection
+//ResourceGroup
+//ResourceType
+//ShiftBrk
+//ShipDtl
+//ShipHead
+//ShipOrd
+//ShipTo
+//ShipVia
+//UD01
+//UD02
+//UD03
+//UD04
+//UD05
+//UD06
+//UD07
+//UD08
+//UD09
+//UD10
+//UOM
+//UOMClass
+//UOMConv
+//VendGrup
+//Vendor
+//WhseBin
+//XaSyst
+
+</script>

@@ -1,0 +1,49 @@
+10
+
+dir
+0
+https://pastureside/svn/StruggleFree.Data/trunk/TestServer
+https://pastureside/svn/StruggleFree.Data
+add
+
+
+
+
+
+has-props
+has-prop-mods
+
+
+
+
+
+
+
+
+
+
+
+
+4520ce2b-5125-824c-9c31-5b8fb88c2b80
+
+TestServer.csproj
+file
+
+
+
+add
+
+Program.cs
+file
+
+
+
+add
+
+Properties
+dir
+
+
+
+add
+

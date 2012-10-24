@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{411BB4EC-4D7F-4AB8-8C64-E1BD6C0E8185}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>StruggleFree.TestLibrary</RootNamespace>
+    <AssemblyName>StruggleFree.TestLibrary</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Bamboo.Prevalence">
+      <HintPath>..\..\bin\Bamboo.Prevalence.dll</HintPath>
+    </Reference>
+    <Reference Include="Csla">
+      <HintPath>..\..\..\Program Files (x86)\Marimer LLC\CSLA .NET\4.1.0\Bin\Debug\Client\Csla.dll</HintPath>
+    </Reference>
+    <Reference Include="StruggleFree.Entities">
+      <HintPath>..\..\StruggleFree.Entities\bin\Debug\StruggleFree.Entities.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ParentEdit.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Root.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\StruggleFree.Data\StruggleFree.Data.csproj">
+      <Project>{492FA806-7DCA-400E-929B-5110062513E2}</Project>
+      <Name>StruggleFree.Data</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\StruggleFree.TestData\StruggleFree.TestData.csproj">
+      <Project>{D9A83FA7-FC8E-4CC7-A8B1-2924F98FE761}</Project>
+      <Name>StruggleFree.TestData</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

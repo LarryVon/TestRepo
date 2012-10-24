@@ -1,0 +1,65 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using Bamboo.Prevalence;
+using Bamboo.Prevalence.Attributes;
+using StruggleFree.Data;
+
+namespace StruggleFree.TestData
+{
+    [Serializable()]
+    public class Root : DataRootBase<Root>
+    {
+        protected EntityStorage<Parent, Root> parentStorage;
+        protected ChildEntityStorage<Child, Parent, Root> childStorage;
+
+        public Root()
+            : base() { }
+
+        protected override void InitEntityStorage()
+        {
+            parentStorage = new EntityStorage<Parent, Root>(this);
+            childStorage = new ChildEntityStorage<Child, Parent, Root>(parentStorage, this);
+            storageDictionary.TryAdd(typeof(Parent), parentStorage);
+            storageDictionary.TryAdd(typeof(Child), childStorage);
+        }
+
+        //public ChildEntityStorage<Child, Parent, Root> Children()
+        //{
+        //    return childStorage;
+        //}
+
+        //public EntityStorage<Parent, Root> Parents()
+        //{
+        //    return parentStorage;
+        //}
+
+        public Child AddOrUpdate(Child child)
+        {
+            //return childStorage.AddOrUpdate(child);
+            return AddOrUpdate<Child>(child);
+        }
+
+        public Parent AddOrUpdate(Parent parent)
+        {
+            //return parentStorage.AddOrUpdate(parent);
+            return AddOrUpdate<Parent>(parent);
+        }
+
+        //public Child NewChild(Parent parent)
+        //{
+        //    return NewChild(parent.InstanceID);
+        //}
+
+        //public Child NewChild(int parentID)
+        //{
+        //    return childStorage.New(parentID);
+        //}
+
+        //public Parent NewParent()
+        //{
+        //    return parentStorage.New();
+        //}
+    }
+}

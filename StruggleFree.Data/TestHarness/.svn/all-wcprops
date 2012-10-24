@@ -1,0 +1,53 @@
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/svn/StruggleFree.Data/!svn/ver/2/trunk/TestHarness
+END
+App.xaml
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svn/StruggleFree.Data/!svn/ver/2/trunk/TestHarness/App.xaml
+END
+MainWindow.xaml.cs
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svn/StruggleFree.Data/!svn/ver/2/trunk/TestHarness/MainWindow.xaml.cs
+END
+TestHarness.csproj
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svn/StruggleFree.Data/!svn/ver/2/trunk/TestHarness/TestHarness.csproj
+END
+App.xaml.cs
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/StruggleFree.Data/!svn/ver/2/trunk/TestHarness/App.xaml.cs
+END
+Child.cs
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svn/StruggleFree.Data/!svn/ver/2/trunk/TestHarness/Child.cs
+END
+Root.cs
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svn/StruggleFree.Data/!svn/ver/2/trunk/TestHarness/Root.cs
+END
+MainWindow.xaml
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svn/StruggleFree.Data/!svn/ver/2/trunk/TestHarness/MainWindow.xaml
+END
+Parent.cs
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svn/StruggleFree.Data/!svn/ver/2/trunk/TestHarness/Parent.cs
+END
